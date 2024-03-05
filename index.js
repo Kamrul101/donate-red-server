@@ -25,15 +25,21 @@ async function run() {
       const result = await donorCollection.find().toArray();
       res.send(result);
     })
+    //count all data and send for pagination
+    app.get('/totalUsers',async(req,res)=>{
+      const result = await donorCollection.estimatedDocumentCount();
+      res.send({totalUsers:result});
+      
+    })
     app.get('/users/:id',async(req,res)=>{
       const id = req.params.id;
       const query ={_id: new ObjectId(id)}
       const result = await donorCollection.findOne(query);
       res.send(result);
     })
+    //post operation for user
     app.post('/users',async(req,res)=>{
       const user = req.body;
-      // console.log(user);
       const query = {email:user.email}
       const existingUser = await donorCollection.findOne(query);
       console.log('existing user',existingUser);
