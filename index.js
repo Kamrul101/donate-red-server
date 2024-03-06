@@ -22,7 +22,12 @@ async function run() {
     client.connect();
     const donorCollection = client.db("donateDb").collection("users");
     app.get('/users',async(req,res)=>{
-      const result = await donorCollection.find().toArray();
+      // console.log(req.query);
+      // load data based on pagination
+      const page = parseInt(req.query.page) || 0;
+      const limit = parseInt(req.query.limit) || 8;
+      const skip = page* limit;
+      const result = await donorCollection.find().skip(skip).limit(limit).toArray();
       res.send(result);
     })
     //count all data and send for pagination
