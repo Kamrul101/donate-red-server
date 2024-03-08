@@ -21,6 +21,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     client.connect();
     const donorCollection = client.db("donateDb").collection("users");
+    
     app.get('/users',async(req,res)=>{
       // console.log(req.query);
       // load data based on pagination
@@ -28,6 +29,14 @@ async function run() {
       const limit = parseInt(req.query.limit) || 8;
       const skip = page* limit;
       const result = await donorCollection.find().skip(skip).limit(limit).toArray();
+      res.send(result);
+    })
+    //for user profile
+    app.get('/singleUsers/:email',async(req,res)=>{
+      
+      const email = req.params.email;
+      const query = {email: email};
+      const result = await donorCollection.findOne(query);
       res.send(result);
     })
     //count all data and send for pagination
