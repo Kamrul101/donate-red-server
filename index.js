@@ -24,13 +24,44 @@ async function run() {
     
     app.get('/users',async(req,res)=>{
       // console.log(req.query);
+      const currentDate = new Date();
       // load data based on pagination
       const page = parseInt(req.query.page) || 0;
       const limit = parseInt(req.query.limit) || 8;
       const skip = page* limit;
-      const result = await donorCollection.find().skip(skip).limit(limit).toArray();
+      const result = await donorCollection.aggregate([
+        // Add a new field 'dateDifference' with the difference between current date and stored date
+        {
+          $addFields: {
+              lastDate: { $toDate: '$lastDate' }
+          }
+      },
+        {$addFields: {
+          dateDiff: {
+              $divide: [
+                  { $subtract: [currentDate, '$lastDate'] },
+                  1000 * 60 * 60 * 24 // Convert milliseconds to days
+              ]
+          }
+      }
+        },
+        // Sort based on the difference in ascending order
+        { $sort: { dateDiff: -1 } },
+        // Skip and limit for pagination
+        { $skip: skip },
+        { $limit: limit }
+    ]).toArray();
       res.send(result);
     })
+    // app.get('/users',async(req,res)=>{
+    //   // console.log(req.query);
+    //   // load data based on pagination
+    //   const page = parseInt(req.query.page) || 0;
+    //   const limit = parseInt(req.query.limit) || 8;
+    //   const skip = page* limit;
+    //   const result = await donorCollection.find().skip(skip).limit(limit).toArray();
+    //   res.send(result);
+    // })
     //for user profile
     app.get('/singleUsers/:email',async(req,res)=>{
       
