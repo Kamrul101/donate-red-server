@@ -21,6 +21,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     client.connect();
     const donorCollection = client.db("donateDb").collection("users");
+    const requestCollection = client.db("donateDb").collection("request");
 
     app.get("/users", async (req, res) => {
       // console.log(req.query);
@@ -74,15 +75,6 @@ async function run() {
         .toArray();
       res.send(result);
     });
-    // app.get('/users',async(req,res)=>{
-    //   // console.log(req.query);
-    //   // load data based on pagination
-    //   const page = parseInt(req.query.page) || 0;
-    //   const limit = parseInt(req.query.limit) || 8;
-    //   const skip = page* limit;
-    //   const result = await donorCollection.find().skip(skip).limit(limit).toArray();
-    //   res.send(result);
-    // })
     //for user profile
     app.get("/singleUsers/:email", async (req, res) => {
       const email = req.params.email;
@@ -127,6 +119,18 @@ async function run() {
     ]).toArray();
       res.send(result);
     });
+    app.get("/request", async (req, res) => {
+      
+      const result = await requestCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/request/:id", async (req, res) => {
+      const donorID = req.params.id;
+      const query = { donorID: donorID };
+      const result = await requestCollection.findOne(query);
+      // console.log(result);
+      res.send(result);
+    });
     //post operation for user
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -139,6 +143,12 @@ async function run() {
       const result = await donorCollection.insertOne(user);
       res.send(result);
     });
+    app.post("/request", async (req, res) => {
+      const requestData = req.body;
+      const result =   await requestCollection.insertOne(requestData);
+      res.send(result);
+    });
+    
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
