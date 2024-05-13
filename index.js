@@ -25,7 +25,7 @@ async function run() {
 
     app.get("/users", async (req, res) => {
       // console.log(req.query);
-      const { group, thana } = req.query;
+      const { group, thana ,email} = req.query;
       const currentDate = new Date();
       // load data based on pagination
       const page = parseInt(req.query.page) || 0;
@@ -43,6 +43,7 @@ async function run() {
       if (thana) {
         matchStage.thana = thana;
       }
+      matchStage.email = { $ne: email };
       
       const result = await donorCollection
         .aggregate([
