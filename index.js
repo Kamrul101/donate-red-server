@@ -127,11 +127,12 @@ async function run() {
     });
     app.get("/request/:id", async (req, res) => {
       const donorID = req.params.id;
-      const query = { donorID: donorID };
+      const email= req.query.email;
+      const query = { donorID: donorID, seekerEmail: email };  
       const result = await requestCollection.findOne(query);
-      // console.log(result);
       res.send(result);
-    });
+  });
+  
     //post operation for user
     app.post("/users", async (req, res) => {
       const user = req.body;
