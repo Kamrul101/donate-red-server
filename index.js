@@ -132,7 +132,40 @@ async function run() {
       const result = await requestCollection.findOne(query);
       res.send(result);
   });
-  
+  app.patch("/request/:id/state", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { state } = req.body; // "accepted" or "rejected"
+        
+        const result = await requestCollection.updateOne(
+            { _id: new ObjectId(id) }, // Match by _id
+            { $set: { state: state } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).send("No matching document found.");
+        }
+        
+        res.send({ success: true });
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("Internal Server Error");
+    }
+});
+app.delete("/request/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+      const result = await requestCollection.deleteOne({ _id: new ObjectId(id) });
+      if (result.deletedCount === 1) {
+          res.json({ success: true, message: "Request deleted successfully" });
+      } else {
+          res.json({ success: false, message: "Request not found" });
+      }
+  } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+  }
+});
+
     //post operation for user
     app.post("/users", async (req, res) => {
       const user = req.body;
