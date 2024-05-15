@@ -80,7 +80,31 @@ async function run() {
     app.get("/singleUsers/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await donorCollection.findOne(query);
+      const currentDate = new Date();
+      // const result = await donorCollection.findOne(query);
+      const result = await donorCollection.aggregate([
+        // Match the document by _id
+        { $match: query },
+
+        // Add a new field 'lastDate' as a Date object
+        {
+            $addFields: {
+                lastDate: { $toDate: "$lastDate" }
+            }
+        },
+
+        // Calculate the date difference in days
+        {
+            $addFields: {
+                dateDiff: {
+                    $divide: [
+                        { $subtract: [currentDate, "$lastDate"] },
+                        1000 * 60 * 60 * 24 // Convert milliseconds to days
+                    ]
+                }
+            }
+        }
+    ]).toArray();
       
       res.send(result);
     });
