@@ -3,9 +3,14 @@ const cors = require("cors");
 const app = express();
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const webpush = require('web-push');
+
 const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
+
+// const vapidKeys = webpush.generateVAPIDKeys();
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.kjhm1xo.mongodb.net/?retryWrites=true&w=majority`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -16,12 +21,20 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+webpush.setVapidDetails(
+  'mailto:your-email@example.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     client.connect();
     const donorCollection = client.db("donateDb").collection("users");
     const requestCollection = client.db("donateDb").collection("request");
+    const subscriptionCollection = client.db('donateDb').collection('subscriptions');
 
     app.get("/users", async (req, res) => {
       // console.log(req.query);
@@ -113,6 +126,8 @@ async function run() {
       const result = await donorCollection.estimatedDocumentCount();
       res.send({ totalUsers: result });
     });
+
+    //getting single user based on id 
     app.get("/users/:id", async (req, res) => {
       const id = req.params.id;
     const query = { _id: new ObjectId(id) };
@@ -144,18 +159,22 @@ async function run() {
     ]).toArray();
       res.send(result);
     });
+    //getting all object of request 
     app.get("/request", async (req, res) => {
       
       const result = await requestCollection.find().toArray();
       res.send(result);
     });
+    // getting single request object
     app.get("/request/:id", async (req, res) => {
       const donorID = req.params.id;
       const email= req.query.email;
       const query = { donorID: donorID, seekerEmail: email };  
       const result = await requestCollection.findOne(query);
+      
       res.send(result);
   });
+  //update request statues on clicking accept ot reject
   app.patch("/request/:id/state", async (req, res) => {
     try {
         const { id } = req.params;
@@ -176,6 +195,49 @@ async function run() {
         res.status(500).send("Internal Server Error");
     }
 });
+app.patch("/user/:id", async (req, res) => {
+  const userId = req.params.id;
+  const { email } = req.body;
+  const currentDate = new Date().toISOString().split('T')[0]; // Format as YYYY-MM-DD
+
+  const session = client.startSession();
+
+  try {
+      session.startTransaction();
+
+      // Update the lastDate in the users collection
+      const updateResult = await donorCollection.updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { lastDate: currentDate } },
+          { session }
+      );
+
+      // Delete all requests associated with the user's email
+      const deleteResult = await requestCollection.deleteMany(
+          { donorEmail: email },
+          { session }
+      );
+
+      await session.commitTransaction();
+
+      res.json({
+          success: true,
+          message: "Donation date updated and requests deleted.",
+          updateResult,
+          deleteResult
+      });
+  } catch (error) {
+      await session.abortTransaction();
+      console.error("Error updating donation date and deleting requests:", error);
+      res.status(500).json({
+          success: false,
+          message: "Failed to update donation date and delete requests."
+      });
+  } finally {
+      session.endSession();
+  }
+});
+//request delete on reject
 app.delete("/request/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -208,6 +270,45 @@ app.delete("/request/:id", async (req, res) => {
       res.send(result);
     });
     
+
+    // Endpoint to save subscription
+    app.post('/subscribe', async (req, res) => {
+      const subscription = req.body;
+    
+    
+      // If subscription does not exist, insert it into the collection
+      await subscriptionCollection.insertOne(subscription);
+      res.status(201).json({ message: 'Subscription inserted successfully' });
+    });
+    
+    // Endpoint to send notification to a specific user
+    app.post('/notify', async (req, res) => {
+      const { email, message } = req.body;
+
+      const donor = await donorCollection.findOne({ email: email });
+      if (!donor) {
+        return res.status(404).json({ message: 'Donor not found' });
+      }
+
+      const subscriptions = await subscriptionCollection.find({ email: email }).toArray();
+      
+      const payload = JSON.stringify({
+        title: 'Blood Donation Request',
+        body: message,
+        icon: 'https://i.ibb.co/X5LBmrB/rsz-sfga.png',
+      });
+
+      subscriptions.forEach((subscription) => {
+        
+        const endpoint = subscription.subscription;
+        
+        webpush.sendNotification(endpoint, payload).catch((error) => {
+          console.error('Error sending notification:', error);
+        });
+      });
+
+      res.status(200).json({ message: 'Notifications sent' });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
